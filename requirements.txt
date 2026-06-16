@@ -1,0 +1,9 @@
+streamlit
+sqlalchemy
+pymysql
+passlib[bcrypt]
+PyJWT
+openai
+gTTS
+streamlit-audiorecorder
+python-dotenv
