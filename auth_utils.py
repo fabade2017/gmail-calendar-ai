@@ -11,10 +11,17 @@ JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "1440"))
 
 
 def hash_password(password: str) -> str:
+    # bcrypt has a 72-byte password limit. Truncate to avoid errors while
+    # allowing longer user passwords to be accepted consistently.
+    if isinstance(password, str):
+        password = password.encode("utf-8")
+    password = password[:72]
     return pwd_context.hash(password)
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    if isinstance(password, str):
+        password = password.encode("utf-8")
     return pwd_context.verify(password, password_hash)
 
 
