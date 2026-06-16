@@ -2,6 +2,13 @@ import os
 import smtplib
 from email.message import EmailMessage
 
+try:
+    from google_utils import build_gmail_service, create_gmail_message, Credentials
+except ImportError:  # pragma: no cover
+    build_gmail_service = None
+    create_gmail_message = None
+    Credentials = None
+
 
 def get_smtp_settings():
     return {
@@ -41,3 +48,18 @@ def send_email(subject: str, body: str, recipients: list[str], sender: str | Non
         return True, "Email sent successfully."
     except Exception as exc:
         return False, f"Email sending failed: {exc}"
+
+
+def send_email_via_google(subject: str, body: str, recipients: list[str], sender: str, credentials) -> tuple[bool, str]:
+    if build_gmail_service is None or create_gmail_message is None:
+        return False, "Google API client is not installed. Install google-api-python-client and google-auth libraries."
+    if credentials is None:
+        return False, "Google credentials are not available. Authorize the app with Google first."
+
+    try:
+        service = build_gmail_service(credentials)
+        message = create_gmail_message(sender, recipients, subject, body)
+        service.users().messages().send(userId="me", body=message).execute()
+        return True, "Email sent successfully via Gmail OAuth."
+    except Exception as exc:
+        return False, f"Google email sending failed: {exc}"

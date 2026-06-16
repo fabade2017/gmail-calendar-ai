@@ -12,7 +12,8 @@ except ImportError:
 from auth_utils import create_access_token, hash_password, verify_access_token, verify_password
 from ai_utils import draft_email, generate_ai_response, summarize_calendar
 from db import SessionLocal, init_db
-from email_utils import send_email
+from email_utils import send_email, send_email_via_google
+from google_oauth import authorize_google, get_google_credentials
 from models import AppConfig, User
 from speech_utils import synthesize_speech, transcribe_audio
 
@@ -189,7 +190,11 @@ def main_app(db: Session, user: User):
                 st.error("Subject, context, and recipients are required.")
             else:
                 draft = draft_email(subject, body_context, tone, provider.lower(), model_name)
-                success, message = send_email(subject, draft, [email.strip() for email in recipients.split(",")], sender=config.get("smtp_sender"))
+                google_credentials = get_google_credentials()
+                if google_credentials is not None:
+                    success, message = send_email_via_google(subject, draft, [email.strip() for email in recipients.split(",")], sender=config.get("smtp_sender") or recipients.split(",")[0].strip(), credentials=google_credentials)
+                else:
+                    success, message = send_email(subject, draft, [email.strip() for email in recipients.split(",")], sender=config.get("smtp_sender"))
                 if success:
                     st.success(message)
                 else:
@@ -213,7 +218,7 @@ def main_app(db: Session, user: User):
 
     if page == "Admin" and user.is_admin:
         st.header("Admin Configuration")
-        st.write("Configure AI and email settings for the assistant.")
+        st.write("Configure AI, Gmail OAuth, and email settings for the assistant.")
         with st.form("admin_form"):
             ai_provider = st.selectbox("AI Provider", ["OpenAI", "Local", "Skilit", "Groq"], index=["OpenAI", "Local", "Skilit", "Groq"].index(config.get("ai_provider", "OpenAI")))
             ai_model = st.text_input("AI Model", config.get("ai_model", "gpt-4o-mini"))
@@ -228,6 +233,13 @@ def main_app(db: Session, user: User):
             set_config_entry(db, "smtp_port", smtp_port)
             set_config_entry(db, "smtp_sender", smtp_sender)
             st.success("Admin settings updated.")
+
+        st.markdown("---")
+        st.subheader("Google OAuth Configuration")
+        st.write("Use your Google client credentials to authorize Gmail send and Calendar access.")
+        st.write("Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in your environment, then authorize below.")
+        if st.button("Authorize with Google"):
+            authorize_google()
 
 
 def main():
